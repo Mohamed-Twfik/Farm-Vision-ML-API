@@ -2,3 +2,7 @@ Flask
 Gunicorn
 SQLAlchemy
 flask_sqlalchemy
+ultralytics
+tensorflow
+numpy
+psycopg2
