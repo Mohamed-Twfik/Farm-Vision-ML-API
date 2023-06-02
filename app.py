@@ -12,7 +12,8 @@ from flask_cors import CORS
 import os
 
 app = Flask(__name__)
-CORS(app)
+# CORS(app)
+CORS(app, resources={r"/api/*": {"origins": ["http://localhost:3000"]}})
 app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://farm_vision:Z1Y18QfiqtO92YxVTM0nfl4m3eKZS3d4@dpg-cgoqqsd269v5rjd53ul0-a.frankfurt-postgres.render.com/farm_vision"
 db = SQLAlchemy(app)
 
