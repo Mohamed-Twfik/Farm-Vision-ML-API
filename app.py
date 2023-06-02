@@ -252,8 +252,3 @@ def getImage(image):
         
     except Exception as e:
         return "Get Image error: " + str(e), 500
-
-
-@app.route('/')
-def hello_world():
-    return 'Hello, World!'
