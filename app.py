@@ -117,6 +117,143 @@ def imageValidation():
         return "image validation error: " + str(e), 500
 
 
+@app.route("/api/imagesModel/diseaseDetection", methods=["POST"])
+def diseaseDetectionEndPoint():
+    try:
+        tokenData = g.tokenData
+        imagename = g.imagename
+
+        # the model
+        output, resultImageName = diseaseDetectionModel(imagename)
+
+        # store data in database
+        if len(output) < 1:
+            output.append("Healthy Plant")
+        insertImageDataQuery = text('INSERT INTO public."ModelsImages" ("image", "createdAt", "updatedAt", "UserId", "resultImage") VALUES (:image, :createdAt, :updatedAt, :UserId, :resultImage) RETURNING id;')
+        current_date = datetime.now()
+        imageData = db.session.execute(insertImageDataQuery, {
+            "image":imagename,
+            "createdAt":current_date,
+            "updatedAt":current_date,
+            "UserId": tokenData["UserId"],
+            "resultImage": resultImageName
+        })
+        imageId = imageData.fetchone()[0]
+        for disease in output:
+            insertDiseasesQuery = text('INSERT INTO public."DetectDiseaseResults" ("diseaseType", "createdAt", "updatedAt", "ModelsImageId") VALUES (:diseaseType, :createdAt, :updatedAt, :ModelsImageId)')
+            db.session.execute(insertDiseasesQuery, {
+                "diseaseType":disease,
+                "createdAt":current_date,
+                "updatedAt":current_date,
+                "ModelsImageId": imageId
+            })
+        db.session.commit()
+
+        # send response
+        response = {"result":output, "image":imagename, "resultImage":resultImageName}
+        return jsonify(response), 200
+    
+    except Exception as e:
+        return "Disease Detection error: " + str(e), 500
+
+
+@app.route("/api/imagesModel/plantClassification", methods=["POST"])
+def plantClassificationEndPoint():
+    try:
+        tokenData = g.tokenData
+        imagename = g.imagename
+
+        # the model
+        output = plantClassificationModel(imagename)
+
+        # store data in database
+        insertImageDataQuery = text('INSERT INTO public."ModelsImages" ("image", "createdAt", "updatedAt", "UserId", "type") VALUES (:image, :createdAt, :updatedAt, :UserId, :type);')
+        current_date = datetime.now()
+        imageData = db.session.execute(insertImageDataQuery, {
+            "image":imagename,
+            "createdAt":current_date,
+            "updatedAt":current_date,
+            "UserId": tokenData["UserId"],
+            "type": output
+        })
+        db.session.commit()
+
+        # send response
+        response = {"result": output, "image": imagename}
+        return jsonify(response), 200
+    
+    except Exception as e:
+        return "Plant Classification error: " + str(e), 500
+
+
+@app.route("/api/getMyHistory", methods=["GET"])
+def getMyHistoryEndPoint():
+    try:
+        tokenData = g.tokenData
+
+        # get data from database
+        getImagesData = text('SELECT "ModelsImages"."id", "ModelsImages"."image", "ModelsImages"."createdAt", "ModelsImages"."type", "ModelsImages"."resultImage" FROM public."ModelsImages" WHERE "ModelsImages"."UserId"=:UserId')
+        getDiseases = text('SELECT "DetectDiseaseResults"."diseaseType" FROM public."DetectDiseaseResults" WHERE "DetectDiseaseResults"."ModelsImageId"=:ImageId')
+        images = db.session.execute(getImagesData, {"UserId": tokenData["UserId"]})
+        images = images.mappings().all()
+        images = [dict(image) for image in images]
+        diseases = []
+        for i in range(len(images)):
+            diseases = db.session.execute(getDiseases, {"ImageId": images[i]["id"]})
+            diseases = diseases.mappings().all()
+            diseases = [dict(disease) for disease in diseases]
+            images[i]["diseases"] = [disease["diseaseType"] for disease in diseases]
+        
+        # send response
+        return jsonify(images), 200
+    
+    except Exception as e:
+        return "Get My History error: " + str(e), 500
+
+
+@app.route("/api/deleteFromHistory/<id>", methods=["DELETE"])
+def deleteFromHistoryEndPoint(id):
+    try:
+        tokenData = g.tokenData
+
+        # get data from database
+        getImageData = text('SELECT "ModelsImages"."image", "ModelsImages"."resultImage" FROM public."ModelsImages" WHERE "ModelsImages"."UserId"=:UserId AND "ModelsImages"."id"=:id')
+        image = db.session.execute(getImageData, {"UserId": tokenData["UserId"], "id": id})
+        image = image.mappings().all()
+        image = [dict(image) for image in image]
+        if len(image) < 1:
+            return "Image not found", 400
+        image = image[0]
+
+        # delete image from database
+        deleteImageQuery = text('DELETE FROM public."ModelsImages" WHERE "ModelsImages"."id"=:id')
+        db.session.execute(deleteImageQuery, {"id": id})
+        db.session.commit()
+
+        # delete image from folder
+        removeFile(image["image"])
+        if image["resultImage"] is not None:
+            removeFile(image["resultImage"])
+
+        # send response
+        return "Image deleted", 200
+    
+    except Exception as e:
+        return "Delete From History error: " + str(e), 500
+
+
+@app.route("/api/getImage/<image>", methods=["GET"])
+def getImage(image):
+    try:
+        if os.path.exists(imagesFolderURL+image):
+            return send_from_directory(imagesFolderURL, image)
+        else:
+            return "File not found", 400
+        
+    except Exception as e:
+        return "Get Image error: " + str(e), 500
+
+
 @app.route('/')
 def hello_world():
     return 'Hello, World!'
