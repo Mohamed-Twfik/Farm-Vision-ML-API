@@ -6,3 +6,4 @@ ultralytics
 tensorflow
 numpy
 psycopg2
+flask_cors
