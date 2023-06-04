@@ -10,12 +10,10 @@ import cv2
 from flask_cors import CORS
 
 import os
-
 app = Flask(__name__)
-# CORS(app)
-CORS(app, resources={r"/api/*": {"origins": "*"}})
 app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://farm_vision:Z1Y18QfiqtO92YxVTM0nfl4m3eKZS3d4@dpg-cgoqqsd269v5rjd53ul0-a.frankfurt-postgres.render.com/farm_vision"
 db = SQLAlchemy(app)
+CORS(app, allow_headers=['x-auth-token'], resources={r"/api/*": {"origins": "*", "methods": "*"}})
 
 imagesFolderURL = "files/modelsImages/"
 
@@ -84,7 +82,10 @@ def plantClassificationModel(imagename):
 @app.before_request
 def authentication():
     try:
-        auth_token = request.headers.get('x-auth-token')
+        # auth_token = request.headers.get('x-auth-token')
+        auth_token = request.view_args["token"]
+        # print (request.view_args)
+        # print (request.view_args["token"])
         if auth_token is None:
             return "Token is required", 401
         getTokenQuery = text('SELECT "Tokens"."token", "Tokens"."UserId" FROM public."Tokens" WHERE "Tokens"."token"=:token')
@@ -120,18 +121,18 @@ def imageValidation():
         return "image validation error: " + str(e), 500
 
 
-@app.route("/api/imagesModel/diseaseDetection", methods=["POST"])
-def diseaseDetectionEndPoint():
+@app.route("/api/imagesModel/diseaseDetection/<token>", methods=["POST"])
+def diseaseDetectionEndPoint(token):
     try:
         tokenData = g.tokenData
         imagename = g.imagename
 
         # the model
-        output, resultImageName = diseaseDetectionModel(imagename)
+        diseases, resultImageName = diseaseDetectionModel(imagename)
 
         # store data in database
-        if len(output) < 1:
-            output.append("Healthy Plant")
+        if len(diseases) < 1:
+            diseases.append("Healthy Plant")
         insertImageDataQuery = text('INSERT INTO public."ModelsImages" ("image", "createdAt", "updatedAt", "UserId", "resultImage") VALUES (:image, :createdAt, :updatedAt, :UserId, :resultImage) RETURNING id;')
         current_date = datetime.now()
         imageData = db.session.execute(insertImageDataQuery, {
@@ -142,7 +143,7 @@ def diseaseDetectionEndPoint():
             "resultImage": resultImageName
         })
         imageId = imageData.fetchone()[0]
-        for disease in output:
+        for disease in diseases:
             insertDiseasesQuery = text('INSERT INTO public."DetectDiseaseResults" ("diseaseType", "createdAt", "updatedAt", "ModelsImageId") VALUES (:diseaseType, :createdAt, :updatedAt, :ModelsImageId)')
             db.session.execute(insertDiseasesQuery, {
                 "diseaseType":disease,
@@ -153,21 +154,21 @@ def diseaseDetectionEndPoint():
         db.session.commit()
 
         # send response
-        response = {"result":output, "image":imagename, "resultImage":resultImageName}
+        response = {"diseases":diseases, "image":imagename, "resultImage":resultImageName}
         return jsonify(response), 200
     
     except Exception as e:
         return "Disease Detection error: " + str(e), 500
 
 
-@app.route("/api/imagesModel/plantClassification", methods=["POST"])
-def plantClassificationEndPoint():
+@app.route("/api/imagesModel/plantClassification/<token>", methods=["POST"])
+def plantClassificationEndPoint(token):
     try:
         tokenData = g.tokenData
         imagename = g.imagename
 
         # the model
-        output = plantClassificationModel(imagename)
+        type = plantClassificationModel(imagename)
 
         # store data in database
         insertImageDataQuery = text('INSERT INTO public."ModelsImages" ("image", "createdAt", "updatedAt", "UserId", "type") VALUES (:image, :createdAt, :updatedAt, :UserId, :type);')
@@ -177,20 +178,62 @@ def plantClassificationEndPoint():
             "createdAt":current_date,
             "updatedAt":current_date,
             "UserId": tokenData["UserId"],
-            "type": output
+            "type": type
         })
         db.session.commit()
 
         # send response
-        response = {"result": output, "image": imagename}
+        response = {"type": type, "image": imagename}
         return jsonify(response), 200
     
     except Exception as e:
         return "Plant Classification error: " + str(e), 500
 
 
-@app.route("/api/getMyHistory", methods=["GET"])
-def getMyHistoryEndPoint():
+@app.route("/api/imagesModel/diseaseDetectionAndPlantClassification/<token>", methods=["POST"])
+def diseaseDetectionAndPlantClassification(token):
+    try:
+        tokenData = g.tokenData
+        imagename = g.imagename
+
+        # detect disease model
+        diseases, resultImageName = diseaseDetectionModel(imagename)
+        type = plantClassificationModel(imagename)
+
+        # store data in database
+        if len(diseases) < 1:
+            diseases.append("Healthy Plant")
+        insertImageDataQuery = text('INSERT INTO public."ModelsImages" ("image", "createdAt", "updatedAt", "UserId", "type", "resultImage") VALUES (:image, :createdAt, :updatedAt, :UserId, :type, :resultImage) RETURNING id;')
+        current_date = datetime.now()
+        imageData = db.session.execute(insertImageDataQuery, {
+            "image":imagename,
+            "createdAt":current_date,
+            "updatedAt":current_date,
+            "UserId": tokenData["UserId"],
+            "type": type,
+            "resultImage": resultImageName
+        })
+        imageId = imageData.fetchone()[0]
+        for disease in diseases:
+            insertDiseasesQuery = text('INSERT INTO public."DetectDiseaseResults" ("diseaseType", "createdAt", "updatedAt", "ModelsImageId") VALUES (:diseaseType, :createdAt, :updatedAt, :ModelsImageId)')
+            db.session.execute(insertDiseasesQuery, {
+                "diseaseType":disease,
+                "createdAt":current_date,
+                "updatedAt":current_date,
+                "ModelsImageId": imageId
+            })
+        db.session.commit()
+
+        # send response
+        response = {"diseases": diseases, "type": type, "image":imagename, "resultImage":resultImageName}
+        return jsonify(response), 200
+    
+    except Exception as e:
+        return "Disease Detection And Plant Classification error: " + str(e), 500
+
+
+@app.route("/api/getMyHistory/<token>", methods=["GET"])
+def getMyHistoryEndPoint(token):
     try:
         tokenData = g.tokenData
 
@@ -214,8 +257,8 @@ def getMyHistoryEndPoint():
         return "Get My History error: " + str(e), 500
 
 
-@app.route("/api/deleteFromHistory/<id>", methods=["DELETE"])
-def deleteFromHistoryEndPoint(id):
+@app.route("/api/deleteFromHistory/<id>/<token>", methods=["DELETE"])
+def deleteFromHistoryEndPoint(id, token):
     try:
         tokenData = g.tokenData
 
@@ -245,8 +288,8 @@ def deleteFromHistoryEndPoint(id):
         return "Delete From History error: " + str(e), 500
 
 
-@app.route("/api/getImage/<image>", methods=["GET"])
-def getImage(image):
+@app.route("/api/getImage/<image>/<token>", methods=["GET"])
+def getImage(image, token):
     try:
         if os.path.exists(imagesFolderURL+image):
             return send_from_directory(imagesFolderURL, image)
