@@ -11,11 +11,15 @@ from flask_cors import CORS
 
 import os
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://farm_vision:Z1Y18QfiqtO92YxVTM0nfl4m3eKZS3d4@dpg-cgoqqsd269v5rjd53ul0-a.frankfurt-postgres.render.com/farm_vision"
+CORS(app)
+# app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://farm_vision:Z1Y18QfiqtO92YxVTM0nfl4m3eKZS3d4@dpg-cgoqqsd269v5rjd53ul0-a.frankfurt-postgres.render.com/farm_vision"
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:mohamed910@localhost/smart_farm"
 db = SQLAlchemy(app)
-CORS(app, allow_headers=['x-auth-token'], resources={r"/api/*": {"origins": "*", "methods": "*"}})
+
 
 imagesFolderURL = "files/modelsImages/"
+videosFolderURL = "files/modelVideos/"
+
 
 def removeFile(url):
     try:
@@ -35,7 +39,7 @@ def diseaseDetectionModel(imagename):
         img = Image.open(imagesFolderURL+imagename)
         img = img.resize((640, 640)) # resize to match model input size
         img.save(imagename)
-        model = YOLO('models/best.pt')
+        model = YOLO('models/disease.pt')
         results = model.predict(stream=True, imgsz=640, source=imagename ,save=True, project=imagesFolderURL, name="", exist_ok=True)
         output= []
         for r in results:
@@ -69,7 +73,7 @@ def plantClassificationModel(imagename):
 
         # model processes part
         class_namesAll = ['Maize', 'Strawberry', 'Wheat']
-        modelAll = keras.models.load_model('models/3PlantFinal.h5')
+        modelAll = keras.models.load_model('models/plantType.h5')
         y_pred = modelAll.predict(test_scaled)
         class_name = class_namesAll[np.argmax(y_pred)]
         removeFile(imagename)
@@ -82,8 +86,8 @@ def plantClassificationModel(imagename):
 @app.before_request
 def authentication():
     try:
-        # auth_token = request.headers.get('x-auth-token')
-        auth_token = request.view_args["token"]
+        auth_token = request.headers.get('x-auth-token')
+        # auth_token = request.view_args["token"]
         # print (request.view_args)
         # print (request.view_args["token"])
         if auth_token is None:
@@ -121,8 +125,8 @@ def imageValidation():
         return "image validation error: " + str(e), 500
 
 
-@app.route("/api/imagesModel/diseaseDetection/<token>", methods=["POST"])
-def diseaseDetectionEndPoint(token):
+@app.route("/api/imagesModel/diseaseDetection", methods=["POST"])
+def diseaseDetectionEndPoint():
     try:
         tokenData = g.tokenData
         imagename = g.imagename
@@ -161,8 +165,8 @@ def diseaseDetectionEndPoint(token):
         return "Disease Detection error: " + str(e), 500
 
 
-@app.route("/api/imagesModel/plantClassification/<token>", methods=["POST"])
-def plantClassificationEndPoint(token):
+@app.route("/api/imagesModel/plantClassification", methods=["POST"])
+def plantClassificationEndPoint():
     try:
         tokenData = g.tokenData
         imagename = g.imagename
@@ -190,8 +194,8 @@ def plantClassificationEndPoint(token):
         return "Plant Classification error: " + str(e), 500
 
 
-@app.route("/api/imagesModel/diseaseDetectionAndPlantClassification/<token>", methods=["POST"])
-def diseaseDetectionAndPlantClassification(token):
+@app.route("/api/imagesModel/diseaseDetectionAndPlantClassification", methods=["POST"])
+def diseaseDetectionAndPlantClassification():
     try:
         tokenData = g.tokenData
         imagename = g.imagename
@@ -232,8 +236,50 @@ def diseaseDetectionAndPlantClassification(token):
         return "Disease Detection And Plant Classification error: " + str(e), 500
 
 
-@app.route("/api/getMyHistory/<token>", methods=["GET"])
-def getMyHistoryEndPoint(token):
+@app.route("/api/counting", methods=["POST"])
+def counting():
+    try:
+        tokenData = g.tokenData
+        imagename = g.imagename
+
+        # detect disease model
+        diseases, resultImageName = diseaseDetectionModel(imagename)
+        type = plantClassificationModel(imagename)
+
+        # store data in database
+        if len(diseases) < 1:
+            diseases.append("Healthy Plant")
+        insertImageDataQuery = text('INSERT INTO public."ModelsImages" ("image", "createdAt", "updatedAt", "UserId", "type", "resultImage") VALUES (:image, :createdAt, :updatedAt, :UserId, :type, :resultImage) RETURNING id;')
+        current_date = datetime.now()
+        imageData = db.session.execute(insertImageDataQuery, {
+            "image":imagename,
+            "createdAt":current_date,
+            "updatedAt":current_date,
+            "UserId": tokenData["UserId"],
+            "type": type,
+            "resultImage": resultImageName
+        })
+        imageId = imageData.fetchone()[0]
+        for disease in diseases:
+            insertDiseasesQuery = text('INSERT INTO public."DetectDiseaseResults" ("diseaseType", "createdAt", "updatedAt", "ModelsImageId") VALUES (:diseaseType, :createdAt, :updatedAt, :ModelsImageId)')
+            db.session.execute(insertDiseasesQuery, {
+                "diseaseType":disease,
+                "createdAt":current_date,
+                "updatedAt":current_date,
+                "ModelsImageId": imageId
+            })
+        db.session.commit()
+
+        # send response
+        response = {"diseases": diseases, "type": type, "image":imagename, "resultImage":resultImageName}
+        return jsonify(response), 200
+    
+    except Exception as e:
+        return "Disease Detection And Plant Classification error: " + str(e), 500
+
+
+@app.route("/api/getMyHistory", methods=["GET"])
+def getMyHistoryEndPoint():
     try:
         tokenData = g.tokenData
 
@@ -257,8 +303,8 @@ def getMyHistoryEndPoint(token):
         return "Get My History error: " + str(e), 500
 
 
-@app.route("/api/deleteFromHistory/<id>/<token>", methods=["DELETE"])
-def deleteFromHistoryEndPoint(id, token):
+@app.route("/api/deleteFromHistory/<id>", methods=["DELETE"])
+def deleteFromHistoryEndPoint(id):
     try:
         tokenData = g.tokenData
 
@@ -288,11 +334,11 @@ def deleteFromHistoryEndPoint(id, token):
         return "Delete From History error: " + str(e), 500
 
 
-@app.route("/api/getImage/<image>/<token>", methods=["GET"])
-def getImage(image, token):
+@app.route("/api/getImage/<image>", methods=["GET"])
+def getImage(image):
     try:
         if os.path.exists(imagesFolderURL+image):
-            return send_from_directory(imagesFolderURL, image)
+            return send_from_directory(imagesFolderURL, image, mimetype="image/jpeg")
         else:
             return "File not found", 400
         
