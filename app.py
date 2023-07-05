@@ -11,9 +11,9 @@ from flask_cors import CORS
 
 import os
 app = Flask(__name__)
-CORS(app)
-# app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://farm_vision:Z1Y18QfiqtO92YxVTM0nfl4m3eKZS3d4@dpg-cgoqqsd269v5rjd53ul0-a.frankfurt-postgres.render.com/farm_vision"
-app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:mohamed910@localhost/smart_farm"
+cors = CORS(app)
+app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
+# app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:mohamed910@localhost/smart_farm"
 db = SQLAlchemy(app)
 
 
@@ -31,7 +31,6 @@ def removeFile(url):
     
     except Exception as e:
         print("Remove File error: " + str(e))
-
 
 def diseaseDetectionModel(imagename):
     try:
@@ -86,18 +85,24 @@ def plantClassificationModel(imagename):
 @app.before_request
 def authentication():
     try:
-        auth_token = request.headers.get('x-auth-token')
-        # auth_token = request.view_args["token"]
-        # print (request.view_args)
-        # print (request.view_args["token"])
+        auth_token = request.form['x-auth-token']
         if auth_token is None:
             return "Token is required", 401
         getTokenQuery = text('SELECT "Tokens"."token", "Tokens"."UserId" FROM public."Tokens" WHERE "Tokens"."token"=:token')
-        result = db.session.execute(getTokenQuery, {"token": auth_token})
-        tokenData = result.mappings().all()
+        tokenResult = db.session.execute(getTokenQuery, {"token": auth_token})
+        tokenData = tokenResult.mappings().all()
+        # print(tokenData[0])
+        # print(tokenData[0]['UserId'])
         if not tokenData:
             return "Token is invalid", 401
-        g.tokenData = tokenData[0]
+        getUserQuery = text('SELECT "Users"."premium", "Users"."haveFreeTrial" FROM public."Users" WHERE "Users"."id"=:id')
+        userResult = db.session.execute(getUserQuery, {"id": tokenData[0]['UserId']})
+        userData = userResult.mappings().all()
+        # print(userData[0])
+        if userData[0]['premium'] or userData[0]['haveFreeTrial']:
+            g.tokenData = tokenData[0]
+        else:
+            return "Sorry you can't use our features please subscribe first", 401
 
     except Exception as e:
         return "authentication error: " + str(e), 500
@@ -187,8 +192,8 @@ def plantClassificationEndPoint():
         db.session.commit()
 
         # send response
-        response = {"type": type, "image": imagename}
-        return jsonify(response), 200
+        response = jsonify({"type": type, "image": imagename})
+        return response, 200
     
     except Exception as e:
         return "Plant Classification error: " + str(e), 500
@@ -278,7 +283,7 @@ def counting():
         return "Disease Detection And Plant Classification error: " + str(e), 500
 
 
-@app.route("/api/getMyHistory", methods=["GET"])
+@app.route("/api/getMyHistory", methods=["POST"])
 def getMyHistoryEndPoint():
     try:
         tokenData = g.tokenData
@@ -303,7 +308,7 @@ def getMyHistoryEndPoint():
         return "Get My History error: " + str(e), 500
 
 
-@app.route("/api/deleteFromHistory/<id>", methods=["DELETE"])
+@app.route("/api/deleteFromHistory/<id>", methods=["PUT"])
 def deleteFromHistoryEndPoint(id):
     try:
         tokenData = g.tokenData
@@ -334,7 +339,7 @@ def deleteFromHistoryEndPoint(id):
         return "Delete From History error: " + str(e), 500
 
 
-@app.route("/api/getImage/<image>", methods=["GET"])
+@app.route("/api/getImage/<image>", methods=["POST"])
 def getImage(image):
     try:
         if os.path.exists(imagesFolderURL+image):
