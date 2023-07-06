@@ -8,13 +8,29 @@ from tensorflow import keras
 import numpy as np
 import cv2 
 from flask_cors import CORS
+from tensorflow_addons.metrics import F1Score
 
 import os
 app = Flask(__name__)
-cors = CORS(app)
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
 # app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:mohamed910@localhost/smart_farm"
 db = SQLAlchemy(app)
+CORS(app)
+
+detectionModel = YOLO('models/disease.pt')
+classificationModel = keras.models.load_model('models/plantType.h5', custom_objects={'FixedDropout': keras.layers.Dropout, 'Addons>F1Score': F1Score})
+class_names = [
+    'healthy apple',
+    'healthy bell pepper',
+    'healthy corn (maize)',
+    'healthy grape',
+    'healthy potato',
+    'unhealthy apple',
+    'unhealthy bell pepper',
+    'unhealthy corn (maize)',
+    'unhealthy grape',
+    'unhealthy potato'
+]
 
 
 imagesFolderURL = "files/modelsImages/"
@@ -38,12 +54,12 @@ def diseaseDetectionModel(imagename):
         img = Image.open(imagesFolderURL+imagename)
         img = img.resize((640, 640)) # resize to match model input size
         img.save(imagename)
-        model = YOLO('models/disease.pt')
-        results = model.predict(stream=True, imgsz=640, source=imagename ,save=True, project=imagesFolderURL, name="", exist_ok=True)
+        # model = YOLO('models/disease.pt')
+        results = detectionModel.predict(stream=True, imgsz=640, source=imagename ,save=True, project=imagesFolderURL, name="", exist_ok=True)
         output= []
         for r in results:
             for c in r.boxes.cls:
-                output.append(model.names[int(c)])
+                output.append(detectionModel.names[int(c)])
         # unique output values
         output = set(output)
         output = list(output)
@@ -60,26 +76,23 @@ def diseaseDetectionModel(imagename):
 def plantClassificationModel(imagename):
     try:
         # preprocessing part
-        img = cv2.imread(imagesFolderURL+imagename)
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        cv2.imwrite(imagename, gray)
-        test = []
-        img = cv2.imread(imagename)
-        resized_img = cv2.resize(img, (256,256))
-        test.append(resized_img)
-        test = np.array(test)
-        test_scaled = test / 255
+        img = Image.open(imagesFolderURL+imagename)
+        img = img.resize((224,224))
+        img = np.array(img)
+        img = img / 255.0
+        img = np.expand_dims(img, axis=0)
 
-        # model processes part
-        class_namesAll = ['Maize', 'Strawberry', 'Wheat']
-        modelAll = keras.models.load_model('models/plantType.h5')
-        y_pred = modelAll.predict(test_scaled)
-        class_name = class_namesAll[np.argmax(y_pred)]
-        removeFile(imagename)
-        return class_name
+        y_pred = classificationModel.predict(img)
+        class_name = class_names[np.argmax(y_pred[0])]
+        confidence = float(np.max(y_pred[0]))
+        # removeFile(imagename)
+        if class_name in class_names:
+            return [class_name, confidence]
+        else:
+            return False
     
     except Exception as e:
-        return "Plant Classification Model error: " + str(e), 500
+        return False
 
 
 @app.before_request
@@ -177,22 +190,27 @@ def plantClassificationEndPoint():
         imagename = g.imagename
 
         # the model
-        type = plantClassificationModel(imagename)
+        result = plantClassificationModel(imagename)
+        if result == False:
+            return "Plant Classification error: " + str(e), 500
 
+        [type, confidence] = result
+        print(type, confidence)
         # store data in database
-        insertImageDataQuery = text('INSERT INTO public."ModelsImages" ("image", "createdAt", "updatedAt", "UserId", "type") VALUES (:image, :createdAt, :updatedAt, :UserId, :type);')
+        insertImageDataQuery = text('INSERT INTO public."ModelsImages" ("image", "createdAt", "updatedAt", "UserId", "type", "confidence") VALUES (:image, :createdAt, :updatedAt, :UserId, :type, :confidence);')
         current_date = datetime.now()
         imageData = db.session.execute(insertImageDataQuery, {
             "image":imagename,
             "createdAt":current_date,
             "updatedAt":current_date,
             "UserId": tokenData["UserId"],
-            "type": type
+            "type": type,
+            "confidence": confidence
         })
         db.session.commit()
 
         # send response
-        response = jsonify({"type": type, "image": imagename})
+        response = jsonify({"type": type, "image": imagename, "confidence": confidence})
         return response, 200
     
     except Exception as e:
@@ -289,7 +307,7 @@ def getMyHistoryEndPoint():
         tokenData = g.tokenData
 
         # get data from database
-        getImagesData = text('SELECT "ModelsImages"."id", "ModelsImages"."image", "ModelsImages"."createdAt", "ModelsImages"."type", "ModelsImages"."resultImage" FROM public."ModelsImages" WHERE "ModelsImages"."UserId"=:UserId')
+        getImagesData = text('SELECT "ModelsImages"."id", "ModelsImages"."image", "ModelsImages"."createdAt", "ModelsImages"."type", "ModelsImages"."confidence", "ModelsImages"."resultImage" FROM public."ModelsImages" WHERE "ModelsImages"."UserId"=:UserId')
         getDiseases = text('SELECT "DetectDiseaseResults"."diseaseType" FROM public."DetectDiseaseResults" WHERE "DetectDiseaseResults"."ModelsImageId"=:ImageId')
         images = db.session.execute(getImagesData, {"UserId": tokenData["UserId"]})
         images = images.mappings().all()
