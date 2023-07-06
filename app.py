@@ -11,12 +11,12 @@ from flask_cors import CORS
 from tensorflow_addons.metrics import F1Score
 import os
 
-os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"  #solve the dead kernel problem
-HOME = os.getcwd()
-os.chdir(HOME)
-SOURCE_VIDEO_PATH = f"{HOME}/target.mp4"
-os.chdir(HOME+ '\ByteTrack')
-print (os.getcwd())
+# os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"  #solve the dead kernel problem
+# HOME = os.getcwd()
+# os.chdir(HOME)
+# SOURCE_VIDEO_PATH = f"{HOME}/target.mp4"
+# os.chdir(HOME+ '\ByteTrack')
+# print (os.getcwd())
 
 from IPython import display
 import ultralytics
