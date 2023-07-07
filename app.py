@@ -47,21 +47,6 @@ app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:mohamed910@localh
 db = SQLAlchemy(app)
 CORS(app)
 
-detectionModel = YOLO('models/disease.pt')
-
-class_names = [
-    'healthy apple',
-    'healthy bell pepper',
-    'healthy corn (maize)',
-    'healthy grape',
-    'healthy potato',
-    'unhealthy apple',
-    'unhealthy bell pepper',
-    'unhealthy corn (maize)',
-    'unhealthy grape',
-    'unhealthy potato'
-]
-
 @dataclass(frozen=True) 
 class BYTETrackerArgs:
     track_thresh: float = 0.25
@@ -129,7 +114,9 @@ def diseaseDetectionModel(imagename):
         img = Image.open(imagesFolderURL+imagename)
         img = img.resize((640, 640)) # resize to match model input size
         img.save(imagename)
-        # model = YOLO('models/disease.pt')
+
+        detectionModel = YOLO('models/disease.pt')
+
         results = detectionModel.predict(stream=True, imgsz=640, source=imagename ,save=True, project=imagesFolderURL, name="", exist_ok=True)
         output= []
         for r in results:
@@ -150,14 +137,26 @@ def diseaseDetectionModel(imagename):
 
 def plantClassificationModel(imagename):
     try:
+        classificationModel = keras.models.load_model('models/plantType.h5' , custom_objects={'FixedDropout': keras.layers.Dropout, 'Addons>F1Score': F1Score} )
+        class_names = [
+            'healthy apple',
+            'healthy bell pepper',
+            'healthy corn (maize)',
+            'healthy grape',
+            'healthy potato',
+            'unhealthy apple',
+            'unhealthy bell pepper',
+            'unhealthy corn (maize)',
+            'unhealthy grape',
+            'unhealthy potato'
+        ]
+
         # preprocessing part
         img = Image.open(imagesFolderURL+imagename)
         img = img.resize((224,224))
         img = np.array(img)
         img = img / 255.0
         img = np.expand_dims(img, axis=0)
-
-        classificationModel = keras.models.load_model('models/plantType.h5' , custom_objects={'FixedDropout': keras.layers.Dropout, 'Addons>F1Score': F1Score} )
 
         y_pred = classificationModel.predict(img)
         class_name = class_names[np.argmax(y_pred[0])]
@@ -417,14 +416,17 @@ def diseaseDetectionAndPlantClassification():
         tokenData = g.tokenData
         imagename = g.imagename
 
-        # detect disease model
         diseases, resultImageName = diseaseDetectionModel(imagename)
-        type = plantClassificationModel(imagename)
+        result = plantClassificationModel(imagename)
+        if result == False:
+            return "Plant Classification error: " + str(e), 500
+
+        [type, confidence] = result
 
         # store data in database
         if len(diseases) < 1:
             diseases.append("Healthy Plant")
-        insertImageDataQuery = text('INSERT INTO public."ModelsImages" ("image", "createdAt", "updatedAt", "UserId", "type", "resultImage") VALUES (:image, :createdAt, :updatedAt, :UserId, :type, :resultImage) RETURNING id;')
+        insertImageDataQuery = text('INSERT INTO public."ModelsImages" ("image", "createdAt", "updatedAt", "UserId", "type", "confidence", "resultImage") VALUES (:image, :createdAt, :updatedAt, :UserId, :type, :confidence, :resultImage) RETURNING id;')
         current_date = datetime.now()
         imageData = db.session.execute(insertImageDataQuery, {
             "image":imagename,
@@ -432,6 +434,7 @@ def diseaseDetectionAndPlantClassification():
             "updatedAt":current_date,
             "UserId": tokenData["UserId"],
             "type": type,
+            "confidence": confidence,
             "resultImage": resultImageName
         })
         imageId = imageData.fetchone()[0]
@@ -446,7 +449,7 @@ def diseaseDetectionAndPlantClassification():
         db.session.commit()
 
         # send response
-        response = {"diseases": diseases, "type": type, "image":imagename, "resultImage":resultImageName}
+        response = {"diseases": diseases, "type": type, "confidence": confidence, "image":imagename, "resultImage":resultImageName}
         return jsonify(response), 200
     
     except Exception as e:
