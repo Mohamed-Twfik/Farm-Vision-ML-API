@@ -42,7 +42,8 @@ from typing import List
 from tqdm import tqdm # to show the progress
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
+# app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgres://farm_vision_db_user:eGM7MDo2W3rznsbtlNJ3ldLdXyKLnXkJ@dpg-cik5pap8g3nc2g8epgkg-a.frankfurt-postgres.render.com/farm_vision_db"
 # app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:mohamed910@localhost/smart_farm"
 db = SQLAlchemy(app)
 CORS(app)
@@ -341,6 +342,7 @@ def diseaseDetectionEndPoint():
     try:
         tokenData = g.tokenData
         imagename = g.imagename
+        feature = "diseases"
 
         # the model
         diseases, resultImageName = diseaseDetectionModel(imagename)
@@ -381,6 +383,7 @@ def plantClassificationEndPoint():
     try:
         tokenData = g.tokenData
         imagename = g.imagename
+        feature = "classification"
 
         # the model
         result = plantClassificationModel(imagename)
@@ -415,6 +418,7 @@ def diseaseDetectionAndPlantClassification():
     try:
         tokenData = g.tokenData
         imagename = g.imagename
+        feature = ["classification", "diseases"]
 
         diseases, resultImageName = diseaseDetectionModel(imagename)
         result = plantClassificationModel(imagename)
