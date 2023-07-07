@@ -42,13 +42,13 @@ from typing import List
 from tqdm import tqdm # to show the progress
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
-# app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:mohamed910@localhost/smart_farm"
+# app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:mohamed910@localhost/smart_farm"
 db = SQLAlchemy(app)
 CORS(app)
 
 detectionModel = YOLO('models/disease.pt')
-classificationModel = keras.models.load_model('models/plantType.h5' , custom_objects={'FixedDropout': keras.layers.Dropout} )
+
 class_names = [
     'healthy apple',
     'healthy bell pepper',
@@ -156,6 +156,8 @@ def plantClassificationModel(imagename):
         img = np.array(img)
         img = img / 255.0
         img = np.expand_dims(img, axis=0)
+
+        classificationModel = keras.models.load_model('models/plantType.h5' , custom_objects={'FixedDropout': keras.layers.Dropout, 'Addons>F1Score': F1Score} )
 
         y_pred = classificationModel.predict(img)
         class_name = class_names[np.argmax(y_pred[0])]
