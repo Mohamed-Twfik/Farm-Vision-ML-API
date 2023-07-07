@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request, send_from_directory, g
 from flask_sqlalchemy import SQLAlchemy
+# from flask_uploads import UploadSet
 from sqlalchemy import text
 from datetime import datetime
 from ultralytics import YOLO
@@ -18,8 +19,8 @@ import os
 # os.chdir(HOME+ '\ByteTrack')
 # print (os.getcwd())
 
-from IPython import display
-import ultralytics
+# from IPython import display
+# import ultralytics
 # import yolox
 # print("yolox.__version__:", yolox.__version__)
 # from yolox.tracker.byte_tracker import BYTETracker, STrack
@@ -41,13 +42,13 @@ from typing import List
 from tqdm import tqdm # to show the progress
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
-# app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:mohamed910@localhost/smart_farm"
+# app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:mohamed910@localhost/smart_farm"
 db = SQLAlchemy(app)
 CORS(app)
 
 detectionModel = YOLO('models/disease.pt')
-classificationModel = keras.models.load_model('models/plantType.h5', custom_objects={'FixedDropout': keras.layers.Dropout, 'Addons>F1Score': F1Score}, average="")
+classificationModel = keras.models.load_model('models/plantType.h5' , custom_objects={'FixedDropout': keras.layers.Dropout} )
 class_names = [
     'healthy apple',
     'healthy bell pepper',
@@ -310,6 +311,30 @@ def imageValidation():
         return "image validation error: " + str(e), 500
 
 
+# @app.before_request
+# def videoValidation():
+#     try:
+#         if request.path.startswith('/api/videosModel'):
+#             if "video" not in request.files:
+#                 return "No file part", 400
+#             video = request.files["video"]
+#             if video.filename == "":
+#                 return "No selected file", 400
+            
+#             # save the file with a secure filename
+#             now = datetime.now()
+#             timestamp = now.timestamp()
+#             milliseconds = round(timestamp * 1000)
+#             videoname = "video-" + str(milliseconds) + ".jpg"
+#             # media = UploadSet("files/modelVideos", ('mp4'))
+#             video.save(videosFolderURL+videoname)
+#             g.videoname = videoname
+
+#     except Exception as e:
+#         return "image validation error: " + str(e), 500
+
+
+
 @app.route("/api/imagesModel/diseaseDetection", methods=["POST"])
 def diseaseDetectionEndPoint():
     try:
@@ -426,7 +451,7 @@ def diseaseDetectionAndPlantClassification():
         return "Disease Detection And Plant Classification error: " + str(e), 500
 
 
-# @app.route("/api/counting", methods=["POST"])
+# @app.route("/api/videosModel/counting", methods=["POST"])
 # def counting():
 #     return jsonify({"count":countingModel()}), 200
 

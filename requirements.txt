@@ -2,6 +2,7 @@ Flask
 Gunicorn
 SQLAlchemy
 flask_sqlalchemy
+flask_uploads
 ultralytics
 tensorflow
 numpy
