@@ -42,8 +42,8 @@ from typing import List
 from tqdm import tqdm # to show the progress
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
-# app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:mohamed910@localhost/smart_farm"
+# app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:mohamed910@localhost/smart_farm"
 db = SQLAlchemy(app)
 CORS(app)
 
@@ -107,6 +107,18 @@ def removeFile(url):
     
     except Exception as e:
         print("Remove File error: " + str(e))
+
+def checkAccess(features, userId, imagename):
+    getUserFeatures = text('SELECT "Features"."feature" FROM public."Features" INNER JOIN public."UserFeatures" ON ("UserFeatures"."FeatureId" = "Features"."id") WHERE "UserFeatures"."UserId" = :userId;')
+    featuresData = db.session.execute(getUserFeatures, {"userId":userId})
+    featuresData = featuresData.mappings().all()
+    featuresData = [dict(featureData)["feature"] for featureData in featuresData]
+    for feature in features:
+        if feature not in featuresData:
+            removeFile(imagesFolderURL+imagename)
+            return False
+    return True
+
 
 def diseaseDetectionModel(imagename):
     try:
@@ -341,7 +353,11 @@ def diseaseDetectionEndPoint():
     try:
         tokenData = g.tokenData
         imagename = g.imagename
-        feature = "diseases"
+        features = ["diseases"]
+
+        checkPermission = checkAccess(features, tokenData["UserId"], imagename)
+        if not checkPermission:
+            return "Access Denied: not allowed you to access this feature", 401
 
         # the model
         diseases, resultImageName = diseaseDetectionModel(imagename)
@@ -382,9 +398,11 @@ def plantClassificationEndPoint():
     try:
         tokenData = g.tokenData
         imagename = g.imagename
-        feature = "classification"
+        features = ["classification"]
 
-        # getUserFeatures = text('SELECT "Features"."feature" FROM public."Features" INNER JOIN public."UserFeatures" ON ("UserFeatures"."FeatureId" = "Features"."id") WHERE "UserFeatures"."UserId" = '+ tokenData.UserId +';')
+        checkPermission = checkAccess(features, tokenData["UserId"], imagename)
+        if not checkPermission:
+            return "Access Denied: not allowed you to access this feature", 401
 
         # the model
         result = plantClassificationModel(imagename)
@@ -419,7 +437,11 @@ def diseaseDetectionAndPlantClassification():
     try:
         tokenData = g.tokenData
         imagename = g.imagename
-        feature = ["classification", "diseases"]
+        features = ["classification", "diseases"]
+
+        checkPermission = checkAccess(features, tokenData["UserId"], imagename)
+        if not checkPermission:
+            return "Access Denied: not allowed you to access this feature", 401
 
         diseases, resultImageName = diseaseDetectionModel(imagename)
         result = plantClassificationModel(imagename)
