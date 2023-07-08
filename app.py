@@ -42,8 +42,8 @@ from typing import List
 from tqdm import tqdm # to show the progress
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
-# app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:mohamed910@localhost/smart_farm"
+# app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:mohamed910@localhost/smart_farm"
 db = SQLAlchemy(app)
 CORS(app)
 
@@ -109,15 +109,25 @@ def removeFile(url):
         print("Remove File error: " + str(e))
 
 def checkAccess(features, userId, imagename):
-    getUserFeatures = text('SELECT "Features"."feature" FROM public."Features" INNER JOIN public."UserFeatures" ON ("UserFeatures"."FeatureId" = "Features"."id") WHERE "UserFeatures"."UserId" = :userId;')
-    featuresData = db.session.execute(getUserFeatures, {"userId":userId})
-    featuresData = featuresData.mappings().all()
-    featuresData = [dict(featureData)["feature"] for featureData in featuresData]
-    for feature in features:
-        if feature not in featuresData:
-            removeFile(imagesFolderURL+imagename)
+    getUserHaveFreeTrial = text('SELECT "Users"."haveFreeTrial" FROM public."Users" WHERE "Users"."id" = :userId;')
+    haveFreeTrialResult = db.session.execute(getUserHaveFreeTrial, {"userId":userId})
+    haveFreeTrialResult = haveFreeTrialResult.mappings().all()
+    print(haveFreeTrialResult[0]["haveFreeTrial"])
+    if not haveFreeTrialResult[0]["haveFreeTrial"]:
+        getUserFeatures = text('SELECT "Features"."feature" FROM public."Features" INNER JOIN public."UserFeatures" ON ("UserFeatures"."FeatureId" = "Features"."id") WHERE "UserFeatures"."UserId" = :userId;')
+        featuresData = db.session.execute(getUserFeatures, {"userId":userId})
+        featuresData = featuresData.mappings().all()
+        featuresData = [dict(featureData)["feature"] for featureData in featuresData]
+        if len(featuresData) == 0:
             return False
-    return True
+        else:
+            for feature in features:
+                if feature not in featuresData:
+                    removeFile(imagesFolderURL+imagename)
+                    return False
+            return True
+    else:
+        return True
 
 
 def diseaseDetectionModel(imagename):
