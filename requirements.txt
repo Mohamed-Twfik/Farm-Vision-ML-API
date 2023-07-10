@@ -10,7 +10,7 @@ flask_cors
 IPython
 supervision==0.1.0
 tensorflow_addons
-torch>=1.7
+torch
 opencv_python
 loguru
 scikit-image
