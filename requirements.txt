@@ -1,5 +1,4 @@
 Flask
-torch>=1.7
 Gunicorn
 SQLAlchemy
 flask_sqlalchemy
@@ -9,6 +8,7 @@ numpy
 psycopg2
 flask_cors
 IPython
+torch>=1.7
 supervision==0.1.0
 tensorflow_addons
 opencv_python
@@ -29,4 +29,4 @@ onnx==1.9.0
 onnxruntime==1.8.0
 onnx-simplifier==0.3.5
 cmake
-yolox
+# yolox
