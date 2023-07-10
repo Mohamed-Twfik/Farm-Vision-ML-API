@@ -9,11 +9,27 @@ import numpy as np
 from flask_cors import CORS
 import os
 import base64
-from tensorflow_addons.metrics import F1Score
+# from tensorflow_addons.metrics import F1Score
+
+import yolox
+print("yolox.__version__:", yolox.__version__)
+from yolox.tracker.byte_tracker import BYTETracker, STrack
+from onemetric.cv.utils.iou import box_iou_batch
+
+import supervision
+print("supervision.__version__:", supervision.__version__)
+from supervision.draw.color import ColorPalette
+from supervision.geometry.dataclasses import Point
+from supervision.video.dataclasses import VideoInfo
+from supervision.video.source import get_video_frames_generator
+from supervision.video.sink import VideoSink
+from supervision.notebook.utils import show_frame_in_notebook
+from supervision.tools.detections import Detections, BoxAnnotator
+from supervision.tools.line_counter import LineCounter, LineCounterAnnotator
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
-# app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:mohamed910@localhost/smart_farm"
+# app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:mohamed910@localhost/smart_farm"
 db = SQLAlchemy(app)
 CORS(app)
 
@@ -189,10 +205,10 @@ def countingModel(videoname, resultVideoname):
         os.chdir(HOME+ '\ByteTrack')
         print (os.getcwd())
 
-        import yolox
-        print("yolox.__version__:", yolox.__version__)
-        from yolox.tracker.byte_tracker import BYTETracker, STrack
-        from onemetric.cv.utils.iou import box_iou_batch
+        # import yolox
+        # print("yolox.__version__:", yolox.__version__)
+        # from yolox.tracker.byte_tracker import BYTETracker, STrack
+        # from onemetric.cv.utils.iou import box_iou_batch
 
         from dataclasses import dataclass
         from typing import List
@@ -209,16 +225,16 @@ def countingModel(videoname, resultVideoname):
             min_box_area: float = 1.0
             mot20: bool = False
 
-        import supervision
-        print("supervision.__version__:", supervision.__version__)
-        from supervision.draw.color import ColorPalette
-        from supervision.geometry.dataclasses import Point
-        from supervision.video.dataclasses import VideoInfo
-        from supervision.video.source import get_video_frames_generator
-        from supervision.video.sink import VideoSink
-        from supervision.notebook.utils import show_frame_in_notebook
-        from supervision.tools.detections import Detections, BoxAnnotator
-        from supervision.tools.line_counter import LineCounter, LineCounterAnnotator
+        # import supervision
+        # print("supervision.__version__:", supervision.__version__)
+        # from supervision.draw.color import ColorPalette
+        # from supervision.geometry.dataclasses import Point
+        # from supervision.video.dataclasses import VideoInfo
+        # from supervision.video.source import get_video_frames_generator
+        # from supervision.video.sink import VideoSink
+        # from supervision.notebook.utils import show_frame_in_notebook
+        # from supervision.tools.detections import Detections, BoxAnnotator
+        # from supervision.tools.line_counter import LineCounter, LineCounterAnnotator
 
         def detections2boxes(detections: Detections) -> np.ndarray:
             return np.hstack((
@@ -490,7 +506,7 @@ def getImagesModelsData():
         images = db.session.execute(getImagesData, {"UserId": tokenData["UserId"]})
         images = images.mappings().all()
         images = [dict(image) for image in images]
-
+        
         diseases = []
         for i in range(len(images)):
             images[i]["image"] = base64.b64encode(images[i]["image"]).decode('utf-8')
@@ -514,8 +530,10 @@ def getImagesModelsRow(id):
         getDiseases = text('SELECT "DetectDiseaseResults"."diseaseType" FROM public."DetectDiseaseResults" WHERE "DetectDiseaseResults"."ModelsImageId"=:ImageId')
         images = db.session.execute(getImagesData, {"id": id})
         images = images.mappings().all()
-        images = [dict(image) for image in images]
-
+        images = [dict(i) for i in images]
+        if len(images) < 1:
+            return jsonify({"images": "Image not found or access denied"}), 400
+        
         diseases = []
         for i in range(len(images)):
             images[i]["image"] = base64.b64encode(images[i]["image"]).decode('utf-8')
@@ -526,7 +544,8 @@ def getImagesModelsRow(id):
             diseases = [dict(disease) for disease in diseases]
             images[i]["diseases"] = [disease["diseaseType"] for disease in diseases]
         
-        response = {"message": "Get image data success", "data": images}
+        image = images[0]
+        response = {"message": "Get image data success", "data": image}
         return jsonify(response), 200
     
     except Exception as e:
@@ -542,7 +561,6 @@ def deleteImagesModelsRow(id):
         image = [dict(image) for image in image]
         if len(image) < 1:
             return jsonify({"message": "Image not found or access denied"}), 400
-        image = image[0]
 
         deleteImageQuery = text('DELETE FROM public."ModelsImages" WHERE "ModelsImages"."id"=:id')
         db.session.execute(deleteImageQuery, {"id": id})
@@ -561,18 +579,17 @@ def videosModels():
         videoname = g.videoname
         resultVideoname = g.resultVideoname
         tokenData = g.tokenData
-        features = request.json["features"]
+        features = request.form.get("features")
 
         checkPermission = checkAccess(features, tokenData["UserId"], videoname)
         if not checkPermission:
             return jsonify({"message": "Access Denied: not allowed you to access this feature"}), 401
-        
+
         code, result = countingModel(videoname, resultVideoname)
         if code != 200:
             return jsonify({"message": "Counting model error: " + str(result)}), 500
         count = result
 
-        # store data in database
         insertVideoDataQuery = text('INSERT INTO public."ModelsVideos" ("video", "createdAt", "updatedAt", "UserId", "type", "number", "resultVideo") VALUES (:video, :createdAt, :updatedAt, :UserId, :type, :number);')
         current_date = datetime.now()
         videoData = db.session.execute(insertVideoDataQuery, {
@@ -586,7 +603,7 @@ def videosModels():
         })
         db.session.commit()
 
-        response = {"message":"Process Success", "count":count, "video": videoname, "resultVideo": resultVideoname}
+        response = {"message":"Process Success", "number":count, "video": videoname, "resultVideo": resultVideoname}
         return jsonify(response), 200
     
     except Exception as e:
@@ -599,7 +616,7 @@ def getVideosModelsData():
         getVideosData = text('SELECT "ModelsVideos"."id", "ModelsVideos"."video", "ModelsVideos"."createdAt", "ModelsVideos"."type", "ModelsVideos"."number" FROM public."ModelsVideos" WHERE "ModelsVideos"."UserId"=:UserId')
         videos = db.session.execute(getVideosData, {"UserId": tokenData["UserId"]})
         videos = videos.mappings().all()
-        videos = [dict(image) for image in videos]
+        videos = [dict(v) for v in videos]
 
         response = {"message": "Get videos data success", "data": videos}
         return jsonify(response), 200
@@ -611,10 +628,13 @@ def getVideosModelsData():
 def getVideosModelsRow(id):
     try:
         getVideosData = text('SELECT "ModelsVideos"."id", "ModelsVideos"."video", "ModelsVideos"."createdAt", "ModelsVideos"."type", "ModelsVideos"."number", "ModelsVideos"."resultVideo" FROM public."ModelsVideos" WHERE "ModelsVideos"."id"=:id')
-        video = db.session.execute(getVideosData, {"id": id})
-        video = video.mappings().all()
-        video = [dict(image) for image in video]
-
+        videos = db.session.execute(getVideosData, {"id": id})
+        videos = videos.mappings().all()
+        videos = [dict(video) for video in videos]
+        if len(videos) < 1:
+            return jsonify({"message": "Video not found or access denied"}), 400
+        
+        video = videos[0]
         response = {"message": "Get video data success", "data": video}
         return jsonify(response), 200
     
@@ -630,8 +650,7 @@ def deleteVideosModelsRow(id):
         video = video.mappings().all()
         video = [dict(image) for image in video]
         if len(video) < 1:
-            return "Video not found or access denied", 400
-        video = video[0]
+            return jsonify({"message": "Video not found or access denied"}), 400
 
         deleteVideoQuery = text('DELETE FROM public."ModelsVideos" WHERE "ModelsVideos"."id"=:id')
         db.session.execute(deleteVideoQuery, {"id": id})
@@ -641,10 +660,10 @@ def deleteVideosModelsRow(id):
         if video["resultVideo"] is not None:
             removeFile(videosFolderURL + video["resultVideo"])
 
-        return ({"message": "Delete video data success"}), 200
+        return jsonify({"message": "Delete video data success"}), 200
     
     except Exception as e:
-        return ({"message": "Delete video data error: " + str(e)}), 500
+        return jsonify({"message": "Delete video data error: " + str(e)}), 500
 
 @app.route("/api/getVideo/<video>", methods=["GET"])
 def getVideo(video):
@@ -652,10 +671,10 @@ def getVideo(video):
         if os.path.exists(videosFolderURL+video):
             return send_from_directory(videosFolderURL, video, mimetype="video/mp4")
         else:
-            return "File not found", 400
+            return jsonify({"message": "File not found"}), 400
         
     except Exception as e:
-        return "Get Video error: " + str(e), 500
+        return jsonify({"message": "Get Video error: " + str(e)}), 500
 
 
 if __name__ == "__main__":
