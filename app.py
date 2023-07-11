@@ -5,7 +5,7 @@ from datetime import datetime
 from flask_cors import CORS
 import os
 import base64
-from CountingModel import countingModel
+# from CountingModel import countingModel
 from imagesModels import diseasesAndClassificationPrepareData, classificationPrepareData, diseasePrepareData
 
 app = Flask(__name__)
