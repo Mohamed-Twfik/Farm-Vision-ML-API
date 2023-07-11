@@ -1,16 +1,17 @@
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"  #solve the dead kernel problem
 HOME = os.getcwd()
-# os.chdir(HOME)
-# os.chdir(HOME+ '\ByteTrack')
-# print(os.getcwd())
+os.chdir(HOME)
+os.chdir(HOME+ '\ByteTrack')
+print(os.getcwd())
 # from IPython import display
 # import ultralytics
+# --------------------------------------------------------------------
 # import yolox
-# import ByteTrack.yolox as yolox
 # print("yolox.__version__:", yolox.__version__)
-from ByteTrack.yolox.tracker.byte_tracker import BYTETracker, STrack
-from onemetric.cv.utils.iou import box_iou_batch
+# from yolox.tracker.byte_tracker import BYTETracker, STrack
+# from onemetric.cv.utils.iou import box_iou_batch
+# --------------------------------------------------------------------
 from dataclasses import dataclass
 
 @dataclass(frozen=True) 
