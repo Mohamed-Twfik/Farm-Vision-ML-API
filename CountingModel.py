@@ -7,8 +7,8 @@ HOME = os.getcwd()
 # from IPython import display
 # import ultralytics
 # import yolox
-import ByteTrack.yolox as yolox
-print("yolox.__version__:", yolox.__version__)
+# import ByteTrack.yolox as yolox
+# print("yolox.__version__:", yolox.__version__)
 from ByteTrack.yolox.tracker.byte_tracker import BYTETracker, STrack
 from onemetric.cv.utils.iou import box_iou_batch
 from dataclasses import dataclass
