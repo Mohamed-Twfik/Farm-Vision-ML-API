@@ -1,14 +1,15 @@
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"  #solve the dead kernel problem
 HOME = os.getcwd()
-os.chdir(HOME)
-os.chdir(HOME+ '\ByteTrack')
-
-from IPython import display
-import ultralytics
-import yolox
+# os.chdir(HOME)
+# os.chdir(HOME+ '\ByteTrack')
+# print(os.getcwd())
+# from IPython import display
+# import ultralytics
+# import yolox
+import ByteTrack.yolox as yolox
 print("yolox.__version__:", yolox.__version__)
-from yolox.tracker.byte_tracker import BYTETracker, STrack
+from ByteTrack.yolox.tracker.byte_tracker import BYTETracker, STrack
 from onemetric.cv.utils.iou import box_iou_batch
 from dataclasses import dataclass
 
@@ -24,13 +25,13 @@ class BYTETrackerArgs:
 import supervision
 print("supervision.__version__:", supervision.__version__)
 from supervision.draw.color import ColorPalette
-from supervision.geometry.dataclasses import Point
-from supervision.video.dataclasses import VideoInfo
-from supervision.video.source import get_video_frames_generator
-from supervision.video.sink import VideoSink
-from supervision.notebook.utils import show_frame_in_notebook
-from supervision.tools.detections import Detections, BoxAnnotator
-from supervision.tools.line_counter import LineCounter, LineCounterAnnotator
+# from supervision.geometry.dataclasses import Point
+from supervision import VideoInfo
+from supervision import get_video_frames_generator
+from supervision import VideoSink
+# from supervision.notebook.utils import show_frame_in_notebook
+from supervision import Detections, BoxAnnotator
+# from supervision.tools.line_counter import LineCounter, LineCounterAnnotator
 
 from typing import List
 import numpy as np
@@ -73,10 +74,10 @@ def match_detections_with_tracks(
     return tracker_ids
 
 def countingModel(videoname, resultVideoName):
-    SOURCE_VIDEO_PATH = f"{HOME}/{videosFolderURL}{videoname}"
-    TARGET_VIDEO_PATH = f"{HOME}/{videosFolderURL}{resultVideoName}"
     # settings
     os.chdir(HOME)
+    SOURCE_VIDEO_PATH = f"{HOME}/{videosFolderURL}{videoname}"
+    TARGET_VIDEO_PATH = f"{HOME}/{videosFolderURL}{resultVideoName}"
     MODEL = "best.pt"
     from ultralytics import YOLO
 
