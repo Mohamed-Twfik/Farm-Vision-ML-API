@@ -1,7 +1,7 @@
 from ultralytics import YOLO
 from PIL import Image
 from tensorflow import keras
-# from tensorflow_addons.metrics import F1Score
+from tensorflow_addons.metrics import F1Score
 import numpy as np
 import os
 
