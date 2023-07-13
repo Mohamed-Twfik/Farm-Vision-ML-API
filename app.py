@@ -9,8 +9,9 @@ import base64
 from imagesModels import diseasesAndClassificationPrepareData, classificationPrepareData, diseasePrepareData
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
+# app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
 # app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:mohamed910@localhost/smart_farm"
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://farm_vision_db_user:eGM7MDo2W3rznsbtlNJ3ldLdXyKLnXkJ@dpg-cik5pap8g3nc2g8epgkg-a.frankfurt-postgres.render.com/farm_vision_db"
 db = SQLAlchemy(app)
 CORS(app)
 
@@ -125,8 +126,7 @@ def imagesModels():
         tokenData = g.tokenData
         imagename = g.imagename
         resultImageName = g.resultImageName
-        features = request.form.getlist('features')
-        # features = request.form.get('features')
+        features = request.form.getlist('features[]')
         if features is None:
             return jsonify({"message": "Features is required"}), 400
         
