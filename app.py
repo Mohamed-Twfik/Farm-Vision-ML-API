@@ -125,7 +125,8 @@ def imagesModels():
         tokenData = g.tokenData
         imagename = g.imagename
         resultImageName = g.resultImageName
-        features = request.form.get('features')
+        features = request.form.getlist('features')
+        # features = request.form.get('features')
         if features is None:
             return jsonify({"message": "Features is required"}), 400
         
