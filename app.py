@@ -185,7 +185,7 @@ def imagesModels():
     except Exception as e:
         return jsonify({"message": "Processing error: " + str(e)}), 500
 
-@app.route("/api/imagesModels", methods=["GET"])
+@app.route("/api/imagesModels/get", methods=["POST"])
 def getImagesModelsData():
     try:
         tokenData = g.tokenData
@@ -211,7 +211,7 @@ def getImagesModelsData():
     except Exception as e:
         return jsonify({"message": "Get images data error: " + str(e)}), 500
 
-@app.route("/api/imagesModels/<id>", methods=["GET"])
+@app.route("/api/imagesModels/get/<id>", methods=["POST"])
 def getImagesModelsRow(id):
     try:
         getImagesData = text('SELECT "ModelsImages"."id", "ModelsImages"."image", "ModelsImages"."createdAt", "ModelsImages"."type", "ModelsImages"."confidence", "ModelsImages"."resultImage" FROM public."ModelsImages" WHERE "ModelsImages"."id"=:id')
@@ -239,7 +239,7 @@ def getImagesModelsRow(id):
     except Exception as e:
         return jsonify({"message": "Get image data error: " + str(e)}), 500
 
-@app.route("/api/imagesModels/<id>", methods=["DELETE"])
+@app.route("/api/imagesModels/delete/<id>", methods=["POST"])
 def deleteImagesModelsRow(id):
     try:
         tokenData = g.tokenData
@@ -297,7 +297,7 @@ def videosModels():
     except Exception as e:
         return jsonify({"message": "Processing error: " + str(e)}), 500
 
-@app.route("/api/videosModels", methods=["GET"])
+@app.route("/api/videosModels/get", methods=["POST"])
 def getVideosModelsData():
     try:
         tokenData = g.tokenData
@@ -312,7 +312,7 @@ def getVideosModelsData():
     except Exception as e:
         return jsonify({"message": "Get videos data error: " + str(e)}), 500
 
-@app.route("/api/videosModels/<id>", methods=["GET"])
+@app.route("/api/videosModels/get/<id>", methods=["POST"])
 def getVideosModelsRow(id):
     try:
         getVideosData = text('SELECT "ModelsVideos"."id", "ModelsVideos"."video", "ModelsVideos"."createdAt", "ModelsVideos"."type", "ModelsVideos"."number", "ModelsVideos"."resultVideo" FROM public."ModelsVideos" WHERE "ModelsVideos"."id"=:id')
@@ -329,7 +329,7 @@ def getVideosModelsRow(id):
     except Exception as e:
         return jsonify({"message": "Get video data error: " + str(e)}), 500
 
-@app.route("/api/videosModels/<id>", methods=["DELETE"])
+@app.route("/api/videosModels/delete/<id>", methods=["POST"])
 def deleteVideosModelsRow(id):
     try:
         tokenData = g.tokenData
@@ -353,7 +353,7 @@ def deleteVideosModelsRow(id):
     except Exception as e:
         return jsonify({"message": "Delete video data error: " + str(e)}), 500
 
-@app.route("/api/getVideo/<video>", methods=["GET"])
+@app.route("/api/getVideo/<video>", methods=["POST"])
 def getVideo(video):
     try:
         if os.path.exists(videosFolderURL+video):
