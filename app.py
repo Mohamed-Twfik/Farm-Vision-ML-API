@@ -48,6 +48,13 @@ def checkAccess(features, userId, fileURL):
     else:
         return True
 
+def validId(id):
+    try:
+        id = int(id)
+        return True
+    except:
+        return False
+
 
 @app.before_request
 def authentication():
@@ -214,6 +221,10 @@ def getImagesModelsData():
 @app.route("/api/imagesModels/get/<id>", methods=["POST"])
 def getImagesModelsRow(id):
     try:
+        validateId = validId(id)
+        if not validateId:
+            return jsonify({"message": "Invalid id"}), 400
+        
         getImagesData = text('SELECT "ModelsImages"."id", "ModelsImages"."image", "ModelsImages"."createdAt", "ModelsImages"."type", "ModelsImages"."confidence", "ModelsImages"."resultImage" FROM public."ModelsImages" WHERE "ModelsImages"."id"=:id')
         getDiseases = text('SELECT "DetectDiseaseResults"."diseaseType" FROM public."DetectDiseaseResults" WHERE "DetectDiseaseResults"."ModelsImageId"=:ImageId')
         images = db.session.execute(getImagesData, {"id": id})
@@ -242,6 +253,9 @@ def getImagesModelsRow(id):
 @app.route("/api/imagesModels/delete/<id>", methods=["POST"])
 def deleteImagesModelsRow(id):
     try:
+        validateId = validId(id)
+        if not validateId:
+            return jsonify({"message": "Invalid id"}), 400
         tokenData = g.tokenData
         getImageData = text('SELECT "ModelsImages"."image", "ModelsImages"."resultImage" FROM public."ModelsImages" WHERE "ModelsImages"."UserId"=:UserId AND "ModelsImages"."id"=:id')
         image = db.session.execute(getImageData, {"UserId": tokenData["UserId"], "id": id})
@@ -315,6 +329,10 @@ def getVideosModelsData():
 @app.route("/api/videosModels/get/<id>", methods=["POST"])
 def getVideosModelsRow(id):
     try:
+        validateId = validId(id)
+        if not validateId:
+            return jsonify({"message": "Invalid id"}), 400
+        
         getVideosData = text('SELECT "ModelsVideos"."id", "ModelsVideos"."video", "ModelsVideos"."createdAt", "ModelsVideos"."type", "ModelsVideos"."number", "ModelsVideos"."resultVideo" FROM public."ModelsVideos" WHERE "ModelsVideos"."id"=:id')
         videos = db.session.execute(getVideosData, {"id": id})
         videos = videos.mappings().all()
@@ -332,6 +350,10 @@ def getVideosModelsRow(id):
 @app.route("/api/videosModels/delete/<id>", methods=["POST"])
 def deleteVideosModelsRow(id):
     try:
+        validateId = validId(id)
+        if not validateId:
+            return jsonify({"message": "Invalid id"}), 400
+        
         tokenData = g.tokenData
         getVideosData = text('SELECT "ModelsVideos"."id", "ModelsVideos"."video", "ModelsVideos"."createdAt", "ModelsVideos"."type", "ModelsVideos"."number" FROM public."ModelsVideos" WHERE "ModelsVideos"."UserId"=:UserId AND "ModelsVideos"."id"=:id')
         video = db.session.execute(getVideosData, {"UserId": tokenData["UserId"], "id": id})
