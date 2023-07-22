@@ -61,13 +61,13 @@ def authentication():
     try:
         auth_token = request.form.get('x-auth-token')
         if auth_token is None:
-            return jsonify({"message": "Token is required"}), 401
+            return jsonify({"message": "Token is required."}), 401
         
         getTokenQuery = text('SELECT "Tokens"."token", "Tokens"."UserId" FROM public."Tokens" WHERE "Tokens"."token"=:token')
         tokenResult = db.session.execute(getTokenQuery, {"token": auth_token})
         tokenData = tokenResult.mappings().all()
         if not tokenData:
-            return jsonify({"message": "Token is invalid"}), 401
+            return jsonify({"message": "Token is invalid."}), 401
         
         getUserQuery = text('SELECT "Users"."premium", "Users"."haveFreeTrial" FROM public."Users" WHERE "Users"."id"=:id')
         userResult = db.session.execute(getUserQuery, {"id": tokenData[0]['UserId']})
@@ -75,7 +75,7 @@ def authentication():
         if userData[0]['premium'] or userData[0]['haveFreeTrial']:
             g.tokenData = tokenData[0]
         else:
-            return jsonify({"message": "Sorry you can't use our features please subscribe first"}), 401
+            return jsonify({"message": "Sorry you can't use our features please subscribe first."}), 401
 
     except Exception as e:
         return jsonify({"message": "Authentication error: " + str(e)}), 500
@@ -85,10 +85,10 @@ def imageValidation():
     try:
         if request.path.startswith('/api/imagesModels/process'):
             if "image" not in request.files:
-                return jsonify({"message": "No file part"}), 400
+                return jsonify({"message": "No file part."}), 400
             image = request.files["image"]
             if image.filename == "":
-                return jsonify({"message": "No selected file"}), 400
+                return jsonify({"message": "No selected file."}), 400
             
             # save the file with a secure filename
             now = datetime.now()
@@ -107,10 +107,10 @@ def videoValidation():
     try:
         if request.path.startswith('/api/videosModels/process'):
             if "video" not in request.files:
-                return jsonify({"message": "No file part"}), 400
+                return jsonify({"message": "No file part."}), 400
             video = request.files["video"]
             if video.filename == "":
-                return jsonify({"message": "No selected file"}), 400
+                return jsonify({"message": "No selected file."}), 400
 
             # save the file with a secure filename
             now = datetime.now()
@@ -135,12 +135,11 @@ def imagesModels():
         features = request.form.getlist('features[]')
 
         if features is None:
-            return jsonify({"message": "Features is required"}), 400
+            return jsonify({"message": "Features is required."}), 400
         
         checkAccessFunc = checkAccess(features, tokenData["UserId"], imagesFolderURL+imagename)
         if not checkAccessFunc:
-            return jsonify({"message": "You don't have access to this feature"}), 401
-
+            return jsonify({"message": "You don't have access to this feature."}), 401
         if "classification" in features and "diseases" in features:
             code, result = diseasesAndClassificationPrepareData(imagename, resultImageName)
         elif "classification" in features:
@@ -148,11 +147,11 @@ def imagesModels():
         elif "diseases" in features:
             code, result = diseasePrepareData(imagename, resultImageName)
         else:
-            return jsonify({"message": "Invalid features"}), 400
+            return jsonify({"message": "Invalid features."}), 400
 
         [diseases, imageBlob, resultImageBlob, type, confidence] = [None, None, None, None, None]
         if code == 500:
-            return jsonify({"message": "image processing error: " + str()}), code
+            return jsonify({"message": "image processing error: " + str(result)}), code
         else:
             [diseases, imageBlob, resultImageBlob, type, confidence] = result
         # store data in database
@@ -186,7 +185,7 @@ def imagesModels():
         resultImage = None
         if resultImageBlob != None:
             resultImage = base64.b64encode(resultImageBlob).decode('utf-8')
-        response = {"message": "Process success", "diseases": diseases, "image": image, "resultImage": resultImage, "type": type, "confidence": confidence}
+        response = {"message": "Process success.", "diseases": diseases, "image": image, "resultImage": resultImage, "type": type, "confidence": confidence}
         return jsonify(response), 200
     
     except Exception as e:
@@ -212,7 +211,7 @@ def getImagesModelsData():
             diseases = [dict(disease) for disease in diseases]
             images[i]["diseases"] = [disease["diseaseType"] for disease in diseases]
 
-        response = {"message": "Get images data success", "data": images}
+        response = {"message": "Get images data success.", "data": images}
         return jsonify(response), 200
     
     except Exception as e:
@@ -223,7 +222,7 @@ def getImagesModelsRow(id):
     try:
         validateId = validId(id)
         if not validateId:
-            return jsonify({"message": "Invalid id"}), 400
+            return jsonify({"message": "Invalid id."}), 400
         
         getImagesData = text('SELECT "ModelsImages"."id", "ModelsImages"."image", "ModelsImages"."createdAt", "ModelsImages"."type", "ModelsImages"."confidence", "ModelsImages"."resultImage" FROM public."ModelsImages" WHERE "ModelsImages"."id"=:id')
         getDiseases = text('SELECT "DetectDiseaseResults"."diseaseType" FROM public."DetectDiseaseResults" WHERE "DetectDiseaseResults"."ModelsImageId"=:ImageId')
@@ -231,7 +230,7 @@ def getImagesModelsRow(id):
         images = images.mappings().all()
         images = [dict(i) for i in images]
         if len(images) < 1:
-            return jsonify({"images": "Image not found or access denied"}), 400
+            return jsonify({"images": "Image not found or access denied."}), 400
         
         diseases = []
         for i in range(len(images)):
@@ -244,7 +243,7 @@ def getImagesModelsRow(id):
             images[i]["diseases"] = [disease["diseaseType"] for disease in diseases]
         
         image = images[0]
-        response = {"message": "Get image data success", "data": image}
+        response = {"message": "Get image data success.", "data": image}
         return jsonify(response), 200
     
     except Exception as e:
@@ -255,20 +254,20 @@ def deleteImagesModelsRow(id):
     try:
         validateId = validId(id)
         if not validateId:
-            return jsonify({"message": "Invalid id"}), 400
+            return jsonify({"message": "Invalid id."}), 400
         tokenData = g.tokenData
         getImageData = text('SELECT "ModelsImages"."image", "ModelsImages"."resultImage" FROM public."ModelsImages" WHERE "ModelsImages"."UserId"=:UserId AND "ModelsImages"."id"=:id')
         image = db.session.execute(getImageData, {"UserId": tokenData["UserId"], "id": id})
         image = image.mappings().all()
         image = [dict(image) for image in image]
         if len(image) < 1:
-            return jsonify({"message": "Image not found or access denied"}), 400
+            return jsonify({"message": "Image not found or access denied."}), 400
 
         deleteImageQuery = text('DELETE FROM public."ModelsImages" WHERE "ModelsImages"."id"=:id')
         db.session.execute(deleteImageQuery, {"id": id})
         db.session.commit()
 
-        return jsonify({"message": "Delete image data success"}), 200
+        return jsonify({"message": "Delete image data success."}), 200
     
     except Exception as e:
         return jsonify({"message": "Delete image data error: " + str(e)}), 500
@@ -285,7 +284,7 @@ def videosModels():
 
         checkPermission = checkAccess(features, tokenData["UserId"], videoname)
         if not checkPermission:
-            return jsonify({"message": "Access Denied: not allowed you to access this feature"}), 401
+            return jsonify({"message": "Access Denied: not allowed you to access this feature."}), 401
 
         code, result = countingModel(videoname, resultVideoname)
         if code != 200:
@@ -305,7 +304,7 @@ def videosModels():
         })
         db.session.commit()
 
-        response = {"message":"Process Success", "number":count, "video": videoname, "resultVideo": resultVideoname}
+        response = {"message":"Process Success.", "number":count, "video": videoname, "resultVideo": resultVideoname}
         return jsonify(response), 200
     
     except Exception as e:
@@ -320,7 +319,7 @@ def getVideosModelsData():
         videos = videos.mappings().all()
         videos = [dict(v) for v in videos]
 
-        response = {"message": "Get videos data success", "data": videos}
+        response = {"message": "Get videos data success.", "data": videos}
         return jsonify(response), 200
     
     except Exception as e:
@@ -331,17 +330,17 @@ def getVideosModelsRow(id):
     try:
         validateId = validId(id)
         if not validateId:
-            return jsonify({"message": "Invalid id"}), 400
+            return jsonify({"message": "Invalid id."}), 400
         
         getVideosData = text('SELECT "ModelsVideos"."id", "ModelsVideos"."video", "ModelsVideos"."createdAt", "ModelsVideos"."type", "ModelsVideos"."number", "ModelsVideos"."resultVideo" FROM public."ModelsVideos" WHERE "ModelsVideos"."id"=:id')
         videos = db.session.execute(getVideosData, {"id": id})
         videos = videos.mappings().all()
         videos = [dict(video) for video in videos]
         if len(videos) < 1:
-            return jsonify({"message": "Video not found or access denied"}), 400
+            return jsonify({"message": "Video not found or access denied."}), 400
         
         video = videos[0]
-        response = {"message": "Get video data success", "data": video}
+        response = {"message": "Get video data success.", "data": video}
         return jsonify(response), 200
     
     except Exception as e:
@@ -360,7 +359,7 @@ def deleteVideosModelsRow(id):
         video = video.mappings().all()
         video = [dict(image) for image in video]
         if len(video) < 1:
-            return jsonify({"message": "Video not found or access denied"}), 400
+            return jsonify({"message": "Video not found or access denied."}), 400
 
         deleteVideoQuery = text('DELETE FROM public."ModelsVideos" WHERE "ModelsVideos"."id"=:id')
         db.session.execute(deleteVideoQuery, {"id": id})
@@ -370,7 +369,7 @@ def deleteVideosModelsRow(id):
         if video["resultVideo"] is not None:
             removeFile(videosFolderURL + video["resultVideo"])
 
-        return jsonify({"message": "Delete video data success"}), 200
+        return jsonify({"message": "Delete video data success."}), 200
     
     except Exception as e:
         return jsonify({"message": "Delete video data error: " + str(e)}), 500
@@ -381,11 +380,11 @@ def getVideo(video):
         if os.path.exists(videosFolderURL+video):
             return send_from_directory(videosFolderURL, video, mimetype="video/mp4")
         else:
-            return jsonify({"message": "File not found"}), 400
+            return jsonify({"message": "File not found."}), 400
         
     except Exception as e:
         return jsonify({"message": "Get Video error: " + str(e)}), 500
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
