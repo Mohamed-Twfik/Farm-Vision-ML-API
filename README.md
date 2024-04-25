@@ -53,7 +53,14 @@ The Farm Vision ML API is a Flask-based web application designed to integrate ma
 
 ## Contributing
 
-Contributions are welcome! Please refer to the [Contribution Guidelines](./CONTRIBUTING.md) before making any pull requests.
+Contributions are welcome! If you'd like to contribute to this project, please follow these steps:
+
+1. Fork the repository.
+2. Create your feature branch (`git checkout -b feature/new-feature`).
+3. Commit your changes (`git commit -am 'Add new feature'`).
+4. Push to the branch (`git push origin feature/new-feature`).
+5. Create a new Pull Request.
+
 
 ## License
 
